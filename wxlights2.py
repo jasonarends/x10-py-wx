@@ -291,7 +291,7 @@ def buildLcdDisplay():
             line1 = line1 + device[0][1:]
         else:
             line1 = line1 + '-'
-    line2 = "  "str(datetime.now().hour) + ":%(m)02d  " %{"m":datetime.now().minute} + timeofday() + "  " + lightlevel()
+    line2 = str(datetime.datetime.now().hour) + ":%(m)02d " %{"m":datetime.datetime.now().minute} + timeofday() + " " + lightlevel()
     logging.debug(line1 + ' ' + line2)
     
     writeLCD(line1,line2)
