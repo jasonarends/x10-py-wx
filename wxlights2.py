@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
-import os, sys
-import json
-import sqlite3
+import os, sys, serial
+import json, sqlite3
 import datetime, time
 import logging
 
@@ -34,6 +33,7 @@ def dolights():
         timechanged = False
     else:
         timechanged = True
+        
     logging.debug('time of day: %s,changed: %s, brightness: %s, changed: %s',rightnow,timechanged,brightness,brightnesschanged)
 
     if rightnow in ("morning"):
@@ -108,9 +108,9 @@ def smartx10(device,status):
     currentstatus = readx10(device)[0]
     if not currentstatus in status: #if the status is requested to be something other than we think it is, change it
         pheyu(device,status)
-	logging.debug('device %s changed to %s',device,status)
+        logging.debug('device %s changed to %s',device,status)
     else:
-	logging.debug('device %s already %s',device,status)
+        logging.debug('device %s already %s',device,status)
 
 def getwug():
     # get conditions last reported (cron job updates this) and return formatted list
@@ -148,23 +148,23 @@ def lightlevel():
 
     if conditions in bright:
         #print conditions + " = bright"
-	logging.debug('%s is bright',conditions)
-	return "bright"
+        logging.debug('%s is bright',conditions)
+        return "bright"
 
     elif conditions in dim:
         #print conditions + " = dim"
-	logging.debug('%s is dim',conditions)
-	return "dim"
+        logging.debug('%s is dim',conditions)
+        return "dim"
 
     elif conditions in dark:
         #print conditions + " = dark"
-	logging.debug('%s is dark',conditions)
-	return "dark"
+        logging.debug('%s is dark',conditions)
+        return "dark"
 
     else:
         #print conditions + " (unknown)"
         logging.debug('%s is unknown',conditions)
-	return "unknown"
+        return "unknown"
 
 def getsundata(currdate):
     # retrieve sun data from database - only needs to happen once a day
@@ -204,6 +204,13 @@ def readx10(device):
         else:
             status = "off"
         return (status,x10[1])
+        
+def readAllX10():
+    with db:
+        cur = db.cursor()
+        cur.execute("select device,active from x10")
+        x10 = cur.fetchall()
+        return x10
 
 def updatestatus(thing,stats):
 
@@ -246,4 +253,49 @@ def timeofday(now = datetime.datetime.now()):
         #after sunset
         return "night"
 
+def matrixwritecommand(commandlist):
+    ser = serial.Serial('/dev/ttyACM0', 19200, timeout=1)
+    commandlist.insert(0, 0xFE)
+    for i in range(0, len(commandlist)):
+         ser.write(chr(commandlist[i]))
+
+def lcdInit():
+    # turn on display
+    matrixwritecommand([0x42, 0])
+    # setup contrast, brightness, color
+    matrixwritecommand([0x91,220]) # contrast 220 seems best
+    time.sleep(0.1)
+    matrixwritecommand([0x99,128]) #brightness 256 is full
+    time.sleep(0.1)
+    matrixwritecommand([0x4b])
+    time.sleep(0.1)
+    matrixwritecommand([0x54])
+    time.sleep(0.1)
+    matrixwritecommand([0xd0,255,255,255]) #color RGB
+    #go home
+    matrixwritecommand([0x48])
+
+def writeLCD(line1,line2):
+    lcdInit()
+    ser = serial.Serial('/dev/ttyACM0', 19200, timeout=1)
+    ser.write(line1)
+    # move to line 2
+    matrixwritecommand([0x47, 1, 2])
+    ser.write(line2)
+    
+def buildLcdDisplay():
+    x10List = readAllX10()
+    line1 = ''
+    for device in x10List:
+        if device[1]:
+            line1 = line1 + device[0][1:]
+        else:
+            line1 = line1 + '-'
+    line2 = "  "str(datetime.now().hour) + ":%(m)02d  " %{"m":datetime.now().minute} + timeofday() + "  " + lightlevel()
+    logging.debug(line1 + ' ' + line2)
+    
+    writeLCD(line1,line2)
+
+
 dolights()
+buildLcdDisplay()
