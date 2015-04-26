@@ -5,7 +5,7 @@ import json, sqlite3
 import datetime, time
 import logging
 
-logging.basicConfig(filename='/home/pi/x10/wxlights.log',format='%(asctime)s %(message)s',level=logging.DEBUG)
+logging.basicConfig(filename='/home/pi/x10/wxlights.log',format='%(asctime)s %(message)s',level=logging.WARNING)
 
 db = sqlite3.connect('/home/pi/database.db', detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
 
@@ -23,6 +23,12 @@ def dolights():
     #update database with current values
     updatestatus('sun',rightnow)
     updatestatus('wxlight',brightness)
+    
+    occupiedLr = readstatus('Living Room')[0] in "true"
+    logging.debug('living room: %s',occupiedLr)
+    occupiedOf = readstatus('Office')[0] in "true"
+    logging.debug('office: %s',occupiedOf)
+
 
     if brightness in previousbrightness:
         brightnesschanged = False
@@ -34,77 +40,159 @@ def dolights():
     else:
         timechanged = True
         
-    logging.debug('time of day: %s,changed: %s, brightness: %s, changed: %s',rightnow,timechanged,brightness,brightnesschanged)
-
-    if timechanged or brightnesschanged:
+    logging.debug('time of day: %s, brightness: %s',rightnow,brightness)
     
-        if rightnow in ("morning"):
-            # morning - all lights on (except 5)
+    if rightnow in ("morning"):
+        # morning - all lights on (except 5)
+        if occupiedLr:
             smartx10("j2","on")
             smartx10("j4","on")
             smartx10("j6","on")
             smartx10("j5","off")
+        else:
+            smartx10("j2","off")
+            smartx10("j4","off")
+            smartx10("j6","on")
+            smartx10("j5","off")
+        
+        if occupiedOf:
+            smartx10("j7","on")
+        else:
+            smartx10("j7","off")
 
-        elif rightnow in ("sunup1"):
-            # turn off j2, all else stay on
+    elif rightnow in ("sunup1"):
+        # turn off j2, all else stay on
+        if occupiedLr:
             smartx10("j2","off")
             smartx10("j4","on")
-            smartx10("j5","off")
             smartx10("j6","on")
-
-        elif rightnow in ("sunup2"):
-            # turn off j2, others depend on wx
+            smartx10("j5","off")
+        else:
             smartx10("j2","off")
+            smartx10("j4","off")
+            smartx10("j6","on")
+            smartx10("j5","off")
+        
+        if occupiedOf:
+            smartx10("j7","on")
+        else:
+            smartx10("j7","off")
 
-            if brightness in "bright":
+    elif rightnow in ("sunup2"):
+        # turn off j2, others depend on wx
+        smartx10("j2","off")
+
+        if brightness in "bright":
+            if occupiedLr:
                 smartx10("j4","on")
                 smartx10("j5","off")
                 smartx10("j6","off")
-            elif brightness in ("dim","dark","unknown"):
+            else:
+                smartx10("j4","off")
+                smartx10("j5","off")
+                smartx10("j6","off")
+            smartx10("j7","off")
+        elif brightness in ("dim","dark","unknown"):
+            if occupiedLr:
                 smartx10("j4","on")
                 smartx10("j5","off")
                 smartx10("j6","on")
-
-        elif rightnow in "day":
-            # turn off j2,6 others depend on wx
-            smartx10("j2","off")
-            smartx10("j6","off")
-
-            if brightness in "bright":
+            else:
                 smartx10("j4","off")
                 smartx10("j5","off")
-            elif brightness in "dim":
+                smartx10("j6","off")
+                
+            if occupiedOf:
+                smartx10("j7","on")
+            else:
+                smartx10("j7","off")
+
+    elif rightnow in "day":
+        # turn off j2,6 others depend on wx
+        smartx10("j2","off")
+        smartx10("j6","off")
+
+        if brightness in "bright":
+            smartx10("j4","off")
+            smartx10("j5","off")
+            smartx10("j7","off")
+        elif brightness in "dim":
+            if occupiedLr:
                 smartx10("j4","on")
-                smartx10("j5","off")
-            elif brightness in ("dark","unknown"):
+            else:
+                smartx10("j4","off")
+            smartx10("j5","off")
+            smartx10("j7","off")
+        elif brightness in ("dark","unknown"):
+            if occupiedLr:
                 smartx10("j4","on")
                 smartx10("j5","on")
+            else:
+                smartx10("j4","off")
+                smartx10("j5","off")
+            if occupiedOf:
+                smartx10("j7","on")
+            else:
+                smartx10("j7","off")
 
-        elif rightnow in ("sunset1"):
-            # turn off j2, others depend on wx
-            smartx10("j2","off")
-            smartx10("j6","off")
+    elif rightnow in ("sunset1"):
+        # turn off j2, others depend on wx
+        smartx10("j2","off")
+        smartx10("j6","off")
 
-            if brightness in "bright":
+        if brightness in "bright":
+            if occupiedLr:
                 smartx10("j4","on")
                 smartx10("j5","off")
-            elif brightness in ("dim","dark","unknown"):
+            else:
+                smartx10("j4","off")
+                smartx10("j5","off")
+            smartx10("j7","off")
+        elif brightness in ("dim","dark","unknown"):
+            if occupiedLr:
                 smartx10("j4","on")
                 smartx10("j5","on")
+            else:
+                smartx10("j4","off")
+                smartx10("j5","off")
+            if occupiedOf:
+                smartx10("j7","on")
+            else:
+                smartx10("j7","off")
 
-        elif rightnow in ("sunset2"):
-            # turn off j2, all else stay on
+    elif rightnow in ("sunset2"):
+        # turn off j2, all else stay on
+        if occupiedLr:
             smartx10("j2","on")
             smartx10("j4","on")
             smartx10("j5","on")
             smartx10("j6","off")
+        else:
+            smartx10("j2","on")
+            smartx10("j4","off")
+            smartx10("j5","off")
+            smartx10("j6","off")
+        if occupiedOf:
+            smartx10("j7","on")
+        else:
+            smartx10("j7","off")
 
-        elif rightnow in ("night"):
-            # night - all lights on
+    elif rightnow in ("night"):
+        # night - all lights on
+        if occupiedLr:
             smartx10("j2","on")
             smartx10("j4","on")
             smartx10("j5","on")
             smartx10("j6","on")
+        else:
+            smartx10("j2","on")
+            smartx10("j4","off")
+            smartx10("j5","off")
+            smartx10("j6","off")
+        if occupiedOf:
+            smartx10("j7","on")
+        else:
+            smartx10("j7","off")
 
 def smartx10(device,status):
     currentstatus = readx10(device)[0]
@@ -121,7 +209,7 @@ def smartx10(device,status):
     else: #if status requested matches what we think it is, change it anyway if it's been 2 hours
         logging.debug('device %s already %s',device,status)
         if timesincechange > datetime.timedelta(hours=2):
-            logging.debug('device last changed over 2 hours ago, forcing update')
+            logging.debug('device %s last changed over 2 hours ago, forcing update',device)
             pheyu(device,status)
             
 
@@ -301,7 +389,7 @@ def buildLcdDisplay():
     line1 = ''
     for device in x10List:
         if device[1]:
-            line1 = line1 + device[0][1:]
+            line1 = line1 + device[0][-1]
         else:
             line1 = line1 + '-'
     line2 = str(datetime.datetime.now().hour) + ":%(m)02d " %{"m":datetime.datetime.now().minute} + timeofday() + " " + lightlevel()
